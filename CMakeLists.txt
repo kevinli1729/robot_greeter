@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(control)
+project(robot_greeter)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -10,6 +10,8 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   controlit_goal_generators
 )
+
+find_package( OpenCV REQUIRED )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -105,6 +107,7 @@ include_directories(
 
 ## Declare a cpp executable
 # add_executable(control_node src/control_node.cpp)
+add_executable( facerec src/facerec.cpp )
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
@@ -114,6 +117,8 @@ include_directories(
 # target_link_libraries(control_node
 #   ${catkin_LIBRARIES}
 # )
+
+target_link_libraries( facerec ${OpenCV_LIBS} )
 
 #############
 ## Install ##
