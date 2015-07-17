@@ -16,18 +16,18 @@ using namespace std;
 static void read_csv(const string& filename, vector<Mat>& images, vector<int>& labels, char separator = ';')
 {
     std::ifstream file(filename.c_str(), ifstream::in);
-    if (!file) 
+    if (!file)
     {
         string error_message = "No valid input file";
         CV_Error(CV_StsBadArg, error_message);
     }
     string line, path, classlabel;
-    while (getline(file, line)) 
+    while (getline(file, line))
     {
         stringstream liness(line);
         getline(liness, path, separator);
         getline(liness, classlabel);
-        if (!path.empty() && !classlabel.empty()) 
+        if (!path.empty() && !classlabel.empty())
         {
             images.push_back(imread(path, 0));
             labels.push_back(atoi(classlabel.c_str()));
@@ -59,8 +59,8 @@ int main()
     try
     {
         read_csv(fn_csv, images, labels);
-    } 
-    catch (cv::Exception& e) 
+    }
+    catch (cv::Exception& e)
     {
         cerr << "Error opening file \"" << fn_csv << "\". Reason: " << e.msg << endl;
         // nothing more we can do
@@ -90,11 +90,11 @@ int main()
         int humans, faces2;
         vector<string> humanNames;
 
-        ifstream fin ("data/humans.txt"); 
+        ifstream fin ("data/humans.txt");
         fin >> humans >> faces2;
         fin.close();
 
-        ifstream fin2 ("data/names.txt");   
+        ifstream fin2 ("data/names.txt");
         for (int i = 0; i < humans; i++)
         {
             string temp;
@@ -107,8 +107,8 @@ int main()
         try
         {
             read_csv(fn_csv, images, labels);
-        } 
-        catch (cv::Exception& e) 
+        }
+        catch (cv::Exception& e)
         {
             cerr << "Error opening file \"" << fn_csv << "\". Reason: " << e.msg << endl;
             // nothing more we can do
@@ -146,7 +146,7 @@ int main()
             //int prediction_1 = model_1 -> predict(face_resized);
             //int prediction_2 = model_2 -> predict(face_resized);
             int prediction_3 = model_3 -> predict(face_resized);
-           
+
 
             //cout << model -> predict(face_resized) << ' ';
             // And finally write all we've found out to the original image!
@@ -164,7 +164,7 @@ int main()
 
             // Show the result:
             imshow("face_recognizer", original);
-            
+
             char key = (char) waitKey(5);
             if (prediction_3 == -1)
             {
@@ -190,7 +190,7 @@ int main()
                 ostringstream temp;
                 temp << faces2;
                 str = temp.str();
-                string output = "data/images/" + human + '_' + str + ".jpg"; 
+                string output = "data/images/" + human + '_' + str + ".jpg";
                 imwrite(output, face_resized);
 
                 if (index == -1)
@@ -223,9 +223,9 @@ int main()
                 ofstream fout3 ("data/humans.txt");
                 fout3 << humans << ' ' << faces2 << endl;
             }
-        
 
-        } 
+
+        }
 
         // And display it:
         char key = (char) waitKey(5);
