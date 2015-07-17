@@ -164,14 +164,14 @@ int main(int argc, char** argv)
     }
 
     // Get the height from the first image
-    int im_width = images[0].cols;
-    int im_height = images[0].rows;
+    int im_width = 200;//images[0].cols;
+    int im_height = 200;//images[0].rows;
 
     cv::CascadeClassifier haar_cascade;
     haar_cascade.load(fn_haar);
     // Get a handle to the Video device:
     cv::VideoCapture cap(deviceId);
-    cap.set(CV_CAP_PROP_FRAME_WIDTH, 720);
+    cap.set(CV_CAP_PROP_FRAME_WIDTH, 720); // the screen is currently 720x720
     cap.set(CV_CAP_PROP_FRAME_HEIGHT, 720);
     // Check if we can use this device at all:
     if (!cap.isOpened())
@@ -182,14 +182,153 @@ int main(int argc, char** argv)
     // Holds the current frame from the Video device:
     cv::Mat frame;
     std::string prev;
-    while (ros::ok())
+
+    int humans, faces2;
+    std::ifstream fin3 ((pathToRobotGreeter + "/data/humans.txt").c_str());
+    fin3 >> humans >> faces2;
+    fin3.close();
+
+    // the case where there are less than two different humans in the picture
+    // it takes pictures of humans until it can register two different humans
+    while (humans < 2 && ros::ok)
     {
-        int humans, faces2;
         std::vector<std::string> humanNames;
 
-        std::ifstream fin ((pathToRobotGreeter + "/data/humans.txt").c_str());
-        fin >> humans >> faces2;
-        fin.close();
+        std::ifstream fin2 ((pathToRobotGreeter + "/data/names.txt").c_str());
+        for (int i = 0; i < humans; i++)
+        {
+            std::string temp;
+            std::getline(fin2, temp);
+            humanNames.push_back(temp);
+        }
+
+        fin2.close();
+
+        try
+        {
+            read_csv(trainingDataFile, images, labels);
+        }
+        catch (cv::Exception& e)
+        {
+            std::cerr << "Error opening file \"" << trainingDataFile << "\". Reason: " << e.msg << std::endl;
+            // nothing more we can do
+            exit(1);
+        }
+
+        // Create a FaceRecognizer and train it on the given  images:
+        //Ptr<FaceRecognizer> model_1 = createLBPHFaceRecognizer(1, 8, 8, 8, 600);
+        //Ptr<FaceRecognizer> model_2 = createFisherFaceRecognizer(0, 2000.0);
+        //cv::Ptr<cv::FaceRecognizer> model_3 = cv::createEigenFaceRecognizer(0, 5000.0);
+        //model_1->train(images, labels);
+        //model_2->train(images, labels);
+        //model_3->train(images, labels);
+
+        cap >> frame;
+        // Clone the current frame:
+        cv::Mat original = frame.clone();
+        // Convert the current frame to grayscale:
+        cv::Mat gray;
+        cvtColor(original, gray, CV_BGR2GRAY);
+        // Find the faces in the frame:
+        std::vector<cv::Rect_<int> > faces;
+        haar_cascade.detectMultiScale(gray, faces, 1.1, 10);
+
+        for(int i = 0; i < faces.size(); i++)
+        {
+            // Process face by face:
+            cv::Rect face_i = faces[i];
+            // Crop the face from the image
+            cv::Mat face = gray(face_i);
+
+            cv::Mat face_resized;
+            cv::resize(face, face_resized, cv::Size(im_width, im_height), 1.0, 1.0, cv::INTER_CUBIC);
+
+            //cout << model -> predict(face_resized) << ' ';
+            // And finally write all we've found out to the original image!
+            // First of all draw a green rectangle around the detected face:
+            rectangle(original, face_i, CV_RGB(0, 255,0), 1);
+            // Create the text we will annotate the box with:
+            //string box_text = format("%d, %d, %d", prediction_1, prediction_2, prediction_3);
+            std::string box_text = cv::format("Person %d.", i);
+            // Calculate the position for annotated text (make sure we don't
+            // put illegal values in there):
+            int pos_x = std::max(face_i.tl().x - 10, 0);
+            int pos_y = std::max(face_i.tl().y - 10, 0);
+            // And now put it into the image:
+            cv::putText(original, box_text, cv::Point(pos_x, pos_y), cv::FONT_HERSHEY_PLAIN, 1.0, CV_RGB(0,255,0), 2.0);
+
+            // Show the result:
+            cv::imshow("face_recognizer", original);
+
+            char key = (char) cv::waitKey(20);
+
+
+            std::string human;
+            std::cout << "Please enter your name, person " << i << ':';
+            std::getline(std::cin, human);
+            std::transform(human.begin(), human.end(), human.begin(), ::tolower);
+
+            if (human.size() == 0)
+                human = prev;
+            else
+                prev = human;
+            int index = -1;
+            for (int i = 0; i < humanNames.size(); i++)
+                if (humanNames[i] == human)
+                {
+                    index = i;
+                    break;
+                }
+
+            faces2++;
+            std::string str;
+            std::ostringstream temp;
+            temp << faces2;
+            str = temp.str();
+            std::string output = pathToRobotGreeter + "/data/images/" + human + '_' + str + ".jpg";
+            imwrite(output, face_resized);
+
+            if (index == -1)
+            {
+                std::string str2;
+                humans++;
+                std::ostringstream temp2;
+                temp2 << humans - 1;
+                str2 = temp2.str();
+
+                std::ofstream fout ((pathToRobotGreeter + "/data/names.txt").c_str(), std::fstream::app);
+                fout << human << std::endl;
+                fout.close();
+
+                std::ofstream fout2 ((pathToRobotGreeter + "/data/TrainingData.csv").c_str(), std::fstream::app);
+                fout2 << output + ';' + str2 << std::endl;
+                fout2.close();
+            }
+            else
+            {
+                std::string str2;
+                std::ostringstream temp2;
+                temp2 << index;
+                str2 = temp2.str();
+                std::ofstream fout2 ((pathToRobotGreeter + "/data/TrainingData.csv").c_str(), std::fstream::app);
+                fout2 << output + ';' + str2 << std::endl;
+                fout2.close();
+            }
+
+            std::ofstream fout3 ((pathToRobotGreeter + "/data/humans.txt").c_str());
+            fout3 << humans << ' ' << faces2 << std::endl;
+        }
+
+        // And display it:
+        char key = (char) cv::waitKey(20);
+        // Exit this loop on escape:
+        if (key == 27)
+            return 0;
+    }
+
+    while (ros::ok())
+    {
+        std::vector<std::string> humanNames;
 
         std::ifstream fin2 ((pathToRobotGreeter + "/data/names.txt").c_str());
         for (int i = 0; i < humans; i++)
@@ -251,7 +390,11 @@ int main(int argc, char** argv)
             rectangle(original, face_i, CV_RGB(0, 255,0), 1);
             // Create the text we will annotate the box with:
             //string box_text = format("%d, %d, %d", prediction_1, prediction_2, prediction_3);
-            std::string box_text = cv::format("Predict: %d", prediction_3);
+            std::string box_text;
+            if (prediction_3 == -1)
+                box_text = cv::format("Person %d.", i);
+            else
+                box_text = humanNames[prediction_3];
             // Calculate the position for annotated text (make sure we don't
             // put illegal values in there):
             int pos_x = std::max(face_i.tl().x - 10, 0);
@@ -262,11 +405,11 @@ int main(int argc, char** argv)
             // Show the result:
             cv::imshow("face_recognizer", original);
 
-            char key = (char) cv::waitKey(5);
+            char key = (char) cv::waitKey(20);
             if (prediction_3 == -1)
             {
                 std::string human;
-                std::cout << "Please enter your name: ";
+                std::cout << "Please enter your name, person " << i << ':';
                 std::getline(std::cin, human);
                 std::transform(human.begin(), human.end(), human.begin(), ::tolower);
 
@@ -325,7 +468,7 @@ int main(int argc, char** argv)
         }
 
         // And display it:
-        char key = (char) cv::waitKey(5);
+        char key = (char) cv::waitKey(20);
         // Exit this loop on escape:
         if (key == 27)
             break;
