@@ -25,5 +25,24 @@ Below is a summary of the commands to execute:
     $ make
     $ sudo make install
 
+The OpenCV files are installed to /usr/local/bin/opencv*, /usr/local/include/openscv2, /usr/local/lib/, and /usr/local/share/OpenCV.
+
 ## ControlIt!
 [Here](http://robotcontrolit.com/installation) are the official instructions.
+
+## Robot Greeter
+After you have setup a ROS workspace during the installation of ControlIt!, add this package to the workspace:
+
+    $ roscd
+    $ cd ../src
+    $ git clone git@github.com:liangfok/robot_greeter.git
+
+You should now have the robot_greeter package within your workspace:
+
+    $ roscd robot_greeter
+
+To compile the application:
+
+    $ roscd 
+    $ cd ..
+    $ catkin_make
