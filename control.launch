@@ -1,0 +1,21 @@
+<?xml version="1.0" ?>
+<launch>
+	<node
+		pkg = "control"
+		type = "neck.py"
+		name = "neck.py"
+		respawn= "true"
+	/>
+	<node
+		pkg="control"
+		type="left_eye.py"
+		name="left_eye.py"
+		respawn= "true"
+	/>
+	<node
+		pkg="control"
+		type="right_eye.py"
+		name="right_eye.py"
+		respawn= "true"
+	/>
+</launch>
