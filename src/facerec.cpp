@@ -11,6 +11,9 @@
 #include <cstdlib>
 #include <vector>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include <ros/ros.h>
 #include <ros/package.h>
 
@@ -40,13 +43,93 @@ static void read_csv(const std::string & filename, std::vector<cv::Mat> & images
     }
 }
 
+/*!
+ * Check whether the data directory exists and whether all necessary files
+ * within it exist. Creates the directory and the necessary files if they
+ * do not exist.
+ *
+ * @return whether there are two images in the data/images/ directory.
+ */
+inline bool initData()
+{
+    // Get path to the robot_greeter package
+    std::string robotGreeterPath = ros::package::getPath("robot_greeter");
+
+    // Check if a data directory exists
+    {
+        struct stat info;
+        std::string folderPath = robotGreeterPath + "/data";
+
+        bool folderExists = true;
+        if (stat(folderPath.c_str(), &info) != 0 || !(info.st_mode & S_IFDIR))
+            folderExists = false;
+
+        if (!folderExists)
+            mkdir(folderPath.c_str(), S_IRWXU);
+    }
+
+    // Check if a data/images directory exists
+    {
+        struct stat info;
+        std::string folderPath = robotGreeterPath + "/data/images";
+
+        bool folderExists = true;
+        if (stat(folderPath.c_str(), &info) != 0 || !(info.st_mode & S_IFDIR))
+            folderExists = false;
+
+        if (!folderExists)
+            mkdir(folderPath.c_str(), S_IRWXU);
+    }
+
+    // Check if training data file exists. Create it if it does not, it creates it.
+    {
+        std::string trainingDataFile = robotGreeterPath + "/data/TrainingData.csv";
+        std::ifstream file(trainingDataFile.c_str(), std::ifstream::in);
+        if (!file)
+        {
+            // Create the training data file
+            std::ofstream fout2 (trainingDataFile.c_str());
+            fout2.close();
+        }
+    }
+
+    // check if a data/humans.txt file exists. Create it if it does not. (contains two integers separated by a space)
+    {
+        std::string humanDataFile = robotGreeterPath + "/data/humans.txt";
+        std::ifstream file(humanDataFile.c_str(), std::ifstream::in);
+        if (!file)
+        {
+            // Create the training data file
+            std::ofstream fout2 (humanDataFile.c_str());
+            fout2 << "0 0" << std::endl;
+            fout2.close();
+        }
+    }
+
+
+    // check if a data/names.txt (list of human names, one line per name)
+    {
+        std::string namesDataFile = robotGreeterPath + "/data/names.txt";
+        std::ifstream file(namesDataFile.c_str(), std::ifstream::in);
+        if (!file)
+        {
+            // Create the training data file
+            std::ofstream fout2 (namesDataFile.c_str());
+            fout2.close();
+        }
+    }
+
+    return true;
+}
+
+
 int main(int argc, char** argv)
 {
     ros::init(argc, argv, "facial_recognizer");
     ros::start();
 
-    std::string path = ros::package::getPath("robot_greeter");
-    std::cout << "path to robot_greeter is: " << path << std::endl;
+    if (!initData())
+        exit(1);
 
     std::string fn_haar = "/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml";//string(argv[1]);
     // string fn_csv = "data/hello.txt";//string(argv[2]);
@@ -65,9 +148,8 @@ int main(int argc, char** argv)
     std::vector<cv::Mat> images;
     std::vector<int> labels;
 
-    // Check whether the training data file exists.
-    // The training data file is called TrainingData.csv
-    std::string trainingDataFile;
+    std::string pathToRobotGreeter = ros::package::getPath("robot_greeter");
+    std::string trainingDataFile = pathToRobotGreeter + "/data/TrainingData.csv";
 
     // Read in the data (fails if no valid input filename is given):
     try
@@ -80,6 +162,7 @@ int main(int argc, char** argv)
         // nothing more we can do
         exit(1);
     }
+
     // Get the height from the first image
     int im_width = images[0].cols;
     int im_height = images[0].rows;
@@ -99,16 +182,16 @@ int main(int argc, char** argv)
     // Holds the current frame from the Video device:
     cv::Mat frame;
     std::string prev;
-    while (true)
+    while (ros::ok())
     {
         int humans, faces2;
         std::vector<std::string> humanNames;
 
-        std::ifstream fin ("data/humans.txt");
+        std::ifstream fin ((pathToRobotGreeter + "/data/humans.txt").c_str());
         fin >> humans >> faces2;
         fin.close();
 
-        std::ifstream fin2 ("data/names.txt");
+        std::ifstream fin2 ((pathToRobotGreeter + "/data/names.txt").c_str());
         for (int i = 0; i < humans; i++)
         {
             std::string temp;
@@ -204,7 +287,7 @@ int main(int argc, char** argv)
                 std::ostringstream temp;
                 temp << faces2;
                 str = temp.str();
-                std::string output = "data/images/" + human + '_' + str + ".jpg";
+                std::string output = pathToRobotGreeter + "/data/images/" + human + '_' + str + ".jpg";
                 imwrite(output, face_resized);
 
                 if (index == -1)
@@ -215,11 +298,11 @@ int main(int argc, char** argv)
                     temp2 << humans - 1;
                     str2 = temp2.str();
 
-                    std::ofstream fout ("data/names.txt", std::fstream::app);
+                    std::ofstream fout ((pathToRobotGreeter + "/data/names.txt").c_str(), std::fstream::app);
                     fout << human << std::endl;
                     fout.close();
 
-                    std::ofstream fout2 ("data/hello.txt", std::fstream::app);
+                    std::ofstream fout2 ((pathToRobotGreeter + "/data/TrainingData.csv").c_str(), std::fstream::app);
                     fout2 << output + ';' + str2 << std::endl;
                     fout2.close();
                 }
@@ -229,12 +312,12 @@ int main(int argc, char** argv)
                     std::ostringstream temp2;
                     temp2 << index;
                     str2 = temp2.str();
-                    std::ofstream fout2 ("data/hello.txt", std::fstream::app);
+                    std::ofstream fout2 ((pathToRobotGreeter + "/data/TrainingData.csv").c_str(), std::fstream::app);
                     fout2 << output + ';' + str2 << std::endl;
                     fout2.close();
                 }
 
-                std::ofstream fout3 ("data/humans.txt");
+                std::ofstream fout3 ((pathToRobotGreeter + "/data/humans.txt").c_str());
                 fout3 << humans << ' ' << faces2 << std::endl;
             }
 
