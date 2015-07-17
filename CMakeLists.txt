@@ -6,6 +6,7 @@ project(robot_greeter)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   roscpp
+  roslib
   rospy
   std_msgs
   controlit_goal_generators
@@ -85,7 +86,7 @@ find_package( OpenCV REQUIRED )
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES control
-  CATKIN_DEPENDS roscpp rospy std_msgs controlit_goal_generators
+  CATKIN_DEPENDS roscpp roslib rospy std_msgs controlit_goal_generators
 #  DEPENDS system_lib
 )
 
@@ -107,7 +108,7 @@ include_directories(
 
 ## Declare a cpp executable
 # add_executable(control_node src/control_node.cpp)
-add_executable( facerec src/facerec.cpp )
+add_executable(facerec src/facerec.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
@@ -118,7 +119,10 @@ add_executable( facerec src/facerec.cpp )
 #   ${catkin_LIBRARIES}
 # )
 
-target_link_libraries( facerec ${OpenCV_LIBS} )
+target_link_libraries(facerec
+	${catkin_LIBRARIES}
+	${OpenCV_LIBS}
+)
 
 #############
 ## Install ##
