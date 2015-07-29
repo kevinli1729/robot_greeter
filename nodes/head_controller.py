@@ -15,31 +15,14 @@ class ReadyState(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=["done", "exit"])
     def execute(self, userdata):
-        print "***************"
         print "Executing ReadyState."
-        print "***************"
+        #must wait for the main controller FSM to output a start to finish this state
         if rospy.is_shutdown():
             return "exit"
         else:
             return "done"
 
-class FaceRec(smach.State):
-    def __init__(self):
-        smach.State.__init__(self, outcomes=["done", "exit"])
-
-    def execute(self, userdata):
-        print "***************"
-        print "Executing FaceRec."
-        print "***************"
-		#runs the program to recognize the face.
-		#note: need to store name in a global variable
-
-        if rospy.is_shutdown():
-            return "exit"
-        else:
-            return "done"
-
-class HandShake(smach.State):
+class Scan(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=["done", "exit"])
 
@@ -47,14 +30,30 @@ class HandShake(smach.State):
         print "***************"
         print "Executing HandShake."
         print "***************"
-		#execute handshake program
+        #execute handshake program
+        #program must watch for a message sent by main program telling if it should stop or not
 
         if rospy.is_shutdown():
             return "exit"
         else:
             return "done"
 
-class Greet:
+
+class Focus(smach.State):
+    def __init__(self):
+        smach.State.__init__(self, outcomes=["done", "exit"])
+
+    def execute(self, userdata):
+        print "***************"
+        print "Executing Focusing on Human."
+        print "***************"
+		#runs the program to recognize the face.
+        #in addition, send to another message file telling the main program if the focusing succeeded or not
+        if rospy.is_shutdown():
+            return "exit"
+        else:
+            return "done"
+class Head:
 	#Scan, Center, FaceRec, HandShake, HumanMovesAway
     def __init__(self):
         self = self;
@@ -62,20 +61,20 @@ class Greet:
     def createFSM(self):
         # define the states
         toReadyState = ReadyState()
-       	toFaceRec = FaceRec()
+       	toFocus = FaceRec()
        	toHandShake = HandShake()
 
         # wire the states into a FSM
         self.fsm = smach.StateMachine(outcomes=['exit'])
         with self.fsm:
             smach.StateMachine.add("GoToReady", toReadyState, 
-                transitions={'done':'FaceRec',
+                transitions={'done':'Scan',
                              'exit':'exit'})
-            smach.StateMachine.add("FaceRec", toFaceRec, 
-                transitions={'done':'HandShake',
+            smach.StateMachine.add("Scan", toFaceRec, 
+                transitions={'done':'Focus',
                              'exit':'exit'})
-            smach.StateMachine.add("HandShake", toHandShake, 
-                transitions={'done':'FaceRec',
+            smach.StateMachine.add("Focus", toHandShake, 
+                transitions={'done':'GoToReady',
                              'exit':'exit'})
     def run(self):
         self.createFSM()
@@ -96,6 +95,6 @@ class Greet:
 
 # Main method
 if __name__ == "__main__":
-    rospy.init_node('Greet', anonymous=True)
+    rospy.init_node('Head', anonymous=True)
     demo = Greet()
     demo.run()

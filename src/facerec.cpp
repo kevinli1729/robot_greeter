@@ -16,6 +16,9 @@
 
 #include <ros/ros.h>
 #include <ros/package.h>
+#include "std_msgs/String.h"
+#include "std_msgs/Bool.h"
+#include "std_msgs/Char.h"
 
 // using namespace cv;
 // using namespace std;
@@ -122,11 +125,20 @@ inline bool initData()
     return true;
 }
 
+char ScanMsg;
+
+void returnMessage(const std_msgs::Char::ConstPtr & message)
+{
+    //ROS_INFO("Facerec heard: [%s] from scanning application", message -> data);
+    ScanMsg = message -> data;
+}
+
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "facial_recognizer");
     ros::start();
+    ros::init(argc, argv, "facial_recognizer_talker");
+    ros::init(argc, argv, "facial_recognizer_listener");
 
     if (!initData())
         exit(1);
@@ -188,10 +200,24 @@ int main(int argc, char** argv)
     fin3 >> humans >> faces2;
     fin3.close();
 
+    ros::init(argc, argv, "talker");
+    ros::NodeHandle n, n2, n3;
+    ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
+    ros::Publisher chatter2_pub = n2.advertise<std_msgs::Bool>("chatter2", 1000);
+
+    ScanMsg = 'g';
     // the case where there are less than two different humans in the picture
     // it takes pictures of humans until it can register two different humans
     while (humans < 2 && ros::ok)
     {
+        {
+            std_msgs::String msg;
+            msg.data = "scan";
+            chatter_pub.publish(msg);
+            ros::spinOnce();
+            ROS_INFO("%s", msg.data.c_str());
+        }
+
         std::vector<std::string> humanNames;
 
         std::ifstream fin2 ((pathToRobotGreeter + "/data/names.txt").c_str());
@@ -235,8 +261,74 @@ int main(int argc, char** argv)
 
         for(int i = 0; i < faces.size(); i++)
         {
-            // Process face by face:
             cv::Rect face_i = faces[i];
+
+            cv::Point center = cv::Point((face_i.tl().x + face_i.br().x) * 0.5, (face_i.tl().y + face_i.br().y) * 0.5);
+
+            std_msgs::String msg2;
+            msg2.data = "focus_h";
+            chatter_pub.publish(msg2);
+            ros::spinOnce();
+
+            std_msgs::Bool msg_b;
+            int dif = center.x - 360;
+            while (std::abs(dif) > 5) // false is move left
+            {
+                msg_b.data = dif > 0?false:true;
+                chatter2_pub.publish(msg_b);
+                ros::spinOnce();
+                ros::Subscriber sub = n3.subscribe("fail", 1000, returnMessage);
+                if (ScanMsg != 'g')
+                    break;
+
+                cap >> frame;
+                cv::Mat original = frame.clone();
+                // Convert the current frame to grayscale:
+                cv::Mat gray;
+                cvtColor(original, gray, CV_BGR2GRAY);
+                // Find the faces in the frame:
+                std::vector<cv::Rect_<int> > faces;
+                haar_cascade.detectMultiScale(gray, faces, 1.1, 10);
+                cv::Rect face_i = faces[i];
+                cv::Point center = cv::Point((face_i.tl().x + face_i.br().x) * 0.5, (face_i.tl().y + face_i.br().y) * 0.5);
+                dif = center.x - 360;
+            }
+
+            if (ScanMsg != 'g')
+                break;
+
+            msg2.data = "focus_v";
+            chatter2_pub.publish(msg_b);
+            ros::spinOnce();
+
+            dif = center.y - 360;
+            while (std::abs(dif) > 5) // false is move up
+            {
+                msg_b.data = dif > 0?false:true;
+                chatter2_pub.publish(msg_b);
+                ros::spinOnce();
+                ros::Subscriber sub = n3.subscribe("fail", 1000, returnMessage);
+                if (ScanMsg != 'g')
+                    break;
+
+
+                cap >> frame;
+                cv::Mat original = frame.clone();
+                // Convert the current frame to grayscale:
+                cv::Mat gray;
+                cvtColor(original, gray, CV_BGR2GRAY);
+                // Find the faces in the frame:
+                std::vector<cv::Rect_<int> > faces;
+                haar_cascade.detectMultiScale(gray, faces, 1.1, 10);
+                cv::Rect face_i = faces[i];
+                cv::Point center = cv::Point((face_i.tl().x + face_i.br().x) * 0.5, (face_i.tl().y + face_i.br().y) * 0.5);
+                dif = center.y - 360;
+            }
+
+            if (ScanMsg != 'g')
+                break;
+
+            // Process face by face:
             // Crop the face from the image
             cv::Mat face = gray(face_i);
 
@@ -317,6 +409,10 @@ int main(int argc, char** argv)
 
             std::ofstream fout3 ((pathToRobotGreeter + "/data/humans.txt").c_str());
             fout3 << humans << ' ' << faces2 << std::endl;
+
+            msg2.data = "focus";
+            chatter_pub.publish(msg2);
+            ros::spinOnce();
         }
 
         // And display it:
@@ -328,6 +424,11 @@ int main(int argc, char** argv)
 
     while (ros::ok())
     {
+        std_msgs::String msg;
+        msg.data = "scan";
+        chatter_pub.publish(msg);
+        ros::spinOnce();
+
         std::vector<std::string> humanNames;
 
         std::ifstream fin2 ((pathToRobotGreeter + "/data/names.txt").c_str());
@@ -371,8 +472,74 @@ int main(int argc, char** argv)
 
         for(int i = 0; i < faces.size(); i++)
         {
-            // Process face by face:
             cv::Rect face_i = faces[i];
+
+            cv::Point center = cv::Point((face_i.tl().x + face_i.br().x) * 0.5, (face_i.tl().y + face_i.br().y) * 0.5);
+
+            std_msgs::String msg2;
+            msg2.data = "focus_h";
+            chatter_pub.publish(msg2);
+            ros::spinOnce();
+
+            std_msgs::Bool msg_b;
+            int dif = center.x - 360;
+            while (std::abs(dif) > 5) // false is move left
+            {
+                msg_b.data = dif > 0?false:true;
+                chatter2_pub.publish(msg_b);
+                ros::spinOnce();
+                ros::Subscriber sub = n3.subscribe("fail", 1000, returnMessage);
+                if (ScanMsg != 'g')
+                    break;
+
+                cap >> frame;
+                cv::Mat original = frame.clone();
+                // Convert the current frame to grayscale:
+                cv::Mat gray;
+                cvtColor(original, gray, CV_BGR2GRAY);
+                // Find the faces in the frame:
+                haar_cascade.detectMultiScale(gray, faces, 1.1, 10);
+                face_i = faces[i];
+                center = cv::Point((face_i.tl().x + face_i.br().x) * 0.5, (face_i.tl().y + face_i.br().y) * 0.5);
+                dif = center.x - 360;
+            }
+
+            if (ScanMsg != 'g')
+                break;
+
+            msg2.data = "focus_v";
+            chatter2_pub.publish(msg_b);
+            ros::spinOnce();
+
+            dif = center.y - 360;
+            while (std::abs(dif) > 5) // false is move up
+            {
+                msg_b.data = dif > 0?false:true;
+                chatter2_pub.publish(msg_b);
+                ros::spinOnce();
+                ros::Subscriber sub = n3.subscribe("fail", 1000, returnMessage);
+                if (ScanMsg != 'g')
+                    break;
+
+
+                cap >> frame;
+                cv::Mat original = frame.clone();
+                // Convert the current frame to grayscale:
+                cv::Mat gray;
+                cvtColor(original, gray, CV_BGR2GRAY);
+                // Find the faces in the frame:
+                haar_cascade.detectMultiScale(gray, faces, 1.1, 10);
+                face_i = faces[i];
+                center = cv::Point((face_i.tl().x + face_i.br().x) * 0.5, (face_i.tl().y + face_i.br().y) * 0.5);
+                dif = center.y - 360;
+            }
+
+            if (ScanMsg != 'g')
+                break;
+
+
+            // Process face by face:
+            face_i = faces[i];
             // Crop the face from the image
             cv::Mat face = gray(face_i);
 

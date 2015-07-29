@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# license removed for brevity
 import rospy
 import controlit_goal_generators
 import SineWaveGenerator
