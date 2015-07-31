@@ -136,13 +136,14 @@ void returnMessage(const std_msgs::Char::ConstPtr & message)
 
 int main(int argc, char** argv)
 {
-    ros::start();
-    ros::init(argc, argv, "facial_recognizer_talker");
-    ros::init(argc, argv, "facial_recognizer_listener");
+    //ros::start();
+    ros::init(argc, argv, "facial_recognizer");
+    //ros::init(argc, argv, "facial_recognizer_listener");
 
     if (!initData())
         exit(1);
 
+    std::cout << "checkpoint1" << std::endl;
     std::string fn_haar = "/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml";//string(argv[1]);
     // string fn_csv = "data/hello.txt";//string(argv[2]);
     int deviceId = 0;//atoi(argv[3]);
@@ -200,6 +201,8 @@ int main(int argc, char** argv)
     fin3 >> humans >> faces2;
     fin3.close();
 
+    //cout << human << ' ' << faces2 << endl;
+
     ros::init(argc, argv, "talker");
     ros::NodeHandle n, n2, n3;
     ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
@@ -208,6 +211,10 @@ int main(int argc, char** argv)
     ScanMsg = 'g';
     // the case where there are less than two different humans in the picture
     // it takes pictures of humans until it can register two different humans
+    
+
+
+    bool reco = false;
     while (humans < 2 && ros::ok)
     {
         {
@@ -272,7 +279,7 @@ int main(int argc, char** argv)
 
             std_msgs::Bool msg_b;
             int dif = center.x - 360;
-            while (std::abs(dif) > 5) // false is move left
+            while (std::abs(dif) > 5 && ros::ok()) // false is move left
             {
                 msg_b.data = dif > 0?false:true;
                 chatter2_pub.publish(msg_b);
@@ -302,7 +309,7 @@ int main(int argc, char** argv)
             ros::spinOnce();
 
             dif = center.y - 360;
-            while (std::abs(dif) > 5) // false is move up
+            while (std::abs(dif) > 5 && ros::ok()) // false is move up
             {
                 msg_b.data = dif > 0?false:true;
                 chatter2_pub.publish(msg_b);
@@ -421,14 +428,15 @@ int main(int argc, char** argv)
         if (key == 27)
             return 0;
     }
-
     while (ros::ok())
     {
+        std::cout << "Sending scan signal." << std::endl;
         std_msgs::String msg;
         msg.data = "scan";
         chatter_pub.publish(msg);
-        ros::spinOnce();
+        //ros::spinOnce();
 
+        reco = false;
         std::vector<std::string> humanNames;
 
         std::ifstream fin2 ((pathToRobotGreeter + "/data/names.txt").c_str());
@@ -472,6 +480,8 @@ int main(int argc, char** argv)
 
         for(int i = 0; i < faces.size(); i++)
         {
+            std::cout << "Face detected." << std::endl;
+            reco = true;
             cv::Rect face_i = faces[i];
 
             cv::Point center = cv::Point((face_i.tl().x + face_i.br().x) * 0.5, (face_i.tl().y + face_i.br().y) * 0.5);
@@ -483,10 +493,17 @@ int main(int argc, char** argv)
 
             std_msgs::Bool msg_b;
             int dif = center.x - 360;
-            while (std::abs(dif) > 5) // false is move left
+            std::cout << "Focusing Horizontally." << std::endl;
+            while (std::abs(dif) > 5 && ros::ok()) // false is move left
             {
                 msg_b.data = dif > 0?false:true;
                 chatter2_pub.publish(msg_b);
+                std::string dir;
+                if (msg_b.data)
+                    dir = "Right";
+                else
+                    dir = "Left";
+                std::cout << "Direction: " << dir << std::endl;
                 ros::spinOnce();
                 ros::Subscriber sub = n3.subscribe("fail", 1000, returnMessage);
                 if (ScanMsg != 'g')
@@ -511,15 +528,24 @@ int main(int argc, char** argv)
             chatter2_pub.publish(msg_b);
             ros::spinOnce();
 
-            dif = center.y - 360;
-            while (std::abs(dif) > 5) // false is move up
+            dif = center.y - 360;            
+            std::cout << "Focusing Vertically." << std::endl;
+            while (std::abs(dif) > 5 && ros::ok()) // false is move up
             {
                 msg_b.data = dif > 0?false:true;
-                chatter2_pub.publish(msg_b);
-                ros::spinOnce();
-                ros::Subscriber sub = n3.subscribe("fail", 1000, returnMessage);
+                chatter2_pub.publish(msg_b);                                
+                std::string dir;
+                if (msg_b.data)
+                    dir = "Down";
+                else
+                    dir = "Up";
+                std::cout << "Direction: " << dir << std::endl;
+
                 if (ScanMsg != 'g')
                     break;
+
+                ros::spinOnce();
+                ros::Subscriber sub = n3.subscribe("fail", 1000, returnMessage);
 
 
                 cap >> frame;
@@ -635,10 +661,13 @@ int main(int argc, char** argv)
         }
 
         // And display it:
-        char key = (char) cv::waitKey(20);
-        // Exit this loop on escape:
-        if (key == 27)
-            break;
+        if (reco)
+        {
+            char key = (char) cv::waitKey(20);
+            // Exit this loop on escape:
+            if (key == 27)
+                break;
+        }
     }
     return 0;
 }
